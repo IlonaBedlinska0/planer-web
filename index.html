@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mój Planer">
+<meta name="theme-color" content="#FF7EB3">
+<title>♡ Mój planer ♡</title>
+<link rel="apple-touch-icon" id="ico">
+<style>
+:root{--bg:#FFF0F6;--pink:#FF7EB3;--deep:#E0457B;--light:#FFD6E7;--soft:#FFE4F0;--text:#7A2952}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 16px);max-width:1150px;margin:auto}
+h1{color:var(--deep);margin:10px 0 2px;font-size:22px}
+#lbl{font-size:13px;margin-bottom:4px}
+.bar{height:28px;background:var(--light);border-radius:14px;position:relative;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#FF9CC8,var(--pink));border-radius:14px;transition:width .4s}
+.pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--deep);text-shadow:0 0 4px #fff}
+button{font:inherit;border:0;border-radius:12px;padding:8px 12px;background:var(--light);color:var(--deep);font-weight:600;cursor:pointer}
+.pri{background:var(--pink);color:#fff}
+nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:10px 0 6px}
+#range{font-weight:700;font-size:16px;margin:0 0 8px}
+#week{display:grid;gap:8px;grid-template-columns:1fr}
+@media(min-width:800px){#week{grid-template-columns:repeat(7,1fr)}}
+.day{background:#fff;border:1px solid var(--light);border-radius:14px;padding:8px;min-height:52px}
+.day.today{border:3px solid var(--pink)}.day.sel{outline:3px solid var(--deep)}
+.dh{display:flex;justify-content:space-between;font-weight:700;color:var(--deep);margin-bottom:4px}
+.ev{border-radius:8px;padding:4px 6px;margin:3px 0;font-size:13px}
+#month{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{background:#fff;border-radius:8px;min-height:64px;padding:3px;font-size:11px;overflow:hidden}
+.cell.out{opacity:.4}.cell.today{outline:3px solid var(--pink)}
+.ev.sm{font-size:9px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goals{background:#fff;border:2px solid var(--pink);border-radius:16px;padding:12px;margin-top:12px}
+.goals h3{margin:0 0 6px;color:var(--deep);font-size:16px}
+.g{display:flex;align-items:center;gap:8px;padding:5px 0}
+.g input{width:22px;height:22px;accent-color:var(--pink)}
+.g span{flex:1}.g.done span{text-decoration:line-through;opacity:.5}
+.add{display:flex;gap:8px;margin-top:8px}
+.add input{flex:1;min-width:0;font-size:16px;border:0;background:var(--soft);border-radius:12px;padding:10px;color:var(--text)}
+dialog{border:3px solid var(--pink);border-radius:18px;background:var(--bg);color:var(--text);width:min(92vw,380px)}
+dialog label{display:block;margin:8px 0 2px;font-weight:600}
+dialog input:not([type=checkbox]),dialog select{width:100%;font-size:16px;padding:8px;border:1px solid var(--pink);border-radius:10px;background:#fff}
+footer{margin-top:14px;display:flex;gap:8px;justify-content:center;font-size:13px}
+</style>
+</head>
+<body>
+<h1>♡ Mój planer ♡</h1>
+<div id="lbl"></div>
+<div class="bar"><div class="fill"></div><div class="pct"></div></div>
+<nav>
+  <button id="back"></button><button id="prev">‹</button><button id="today">Dziś</button><button id="next">›</button>
+  <button id="add" class="pri" style="margin-left:auto">♡ Wydarzenie</button>
+</nav>
+<div id="range"></div>
+<div id="main"></div>
+<div class="goals">
+  <h3 id="gt"></h3>
+  <div id="glist"></div>
+  <div class="add"><input id="gi" placeholder="Wpisz cel i kliknij ＋"><button id="ga" class="pri" style="font-size:20px">＋</button></div>
+</div>
+<footer><button id="exp">⬇ Eksport danych</button><button id="impb">⬆ Import danych</button><input type="file" id="imp" accept=".json" hidden></footer>
+
+<dialog id="dlg"><form id="f">
+  <h3 style="color:var(--deep);margin-top:0">♡ Nowe wydarzenie</h3>
+  <label>Nazwa</label><input id="et" required>
+  <label>Data</label><input id="ed" type="date" required>
+  <label>Początek</label><input id="es" type="time" value="08:00" required>
+  <label>Koniec</label><input id="ee" type="time" value="09:30" required>
+  <label>Kategoria</label><select id="ec"></select>
+  <label style="display:flex;gap:8px;align-items:center"><input id="er" type="checkbox"> Powtarzaj co tydzień</label>
+  <div style="display:flex;gap:8px;margin-top:12px"><button type="button" id="cancel">Anuluj</button><button class="pri">♡ Zapisz</button></div>
+</form></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const CAT={Studia:"#FFB3D1",Moje:"#D9C7FF",Ważne:"#FFE58F",Sport:"#B8F0D8",Zakupy:"#BFE3FF"};
+const DN=["Pon","Wt","Śr","Czw","Pt","Sob","Nd"],DL=["poniedziałek","wtorek","środa","czwartek","piątek","sobota","niedziela"];
+const MG=["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"];
+const MN=["Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"];
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const par=s=>{const[a,b,c]=s.split("-");return new Date(+a,b-1,+c)};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const dow=d=>(d.getDay()+6)%7;
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const pretty=d=>`${DL[dow(d)]}, ${d.getDate()} ${MG[d.getMonth()]} ${d.getFullYear()}`;
+
+let D;try{D=JSON.parse(localStorage.getItem("planer"))}catch(e){}
+D=D||{};D.events=D.events||[];D.goals=D.goals||{};
+const save=()=>localStorage.setItem("planer",JSON.stringify(D));
+let sel=new Date();sel.setHours(0,0,0,0);let view="week";
+
+const evOn=d=>D.events.filter(e=>{const s=par(e.date);return e.repeat?d>=s&&dow(d)==dow(s):iso(d)==e.date}).sort((a,b)=>a.start.localeCompare(b.start));
+const goals=d=>D.goals[iso(d)]=D.goals[iso(d)]||[];
+
+function render(){
+  const g=goals(sel),done=g.filter(x=>x.done).length,p=g.length?Math.round(100*done/g.length):0;
+  $("#lbl").textContent=`Postęp dnia: ${pretty(sel)} • wykonane ${done} z ${g.length}`;
+  $(".fill").style.width=p+"%";$(".pct").textContent=`♥ ${p}% ♥`;
+  $("#back").style.visibility=view=="month"?"hidden":"visible";
+  $("#back").textContent=view=="week"?"‹ Miesiąc":"‹ Tydzień";
+  const tod=iso(new Date());let h="";
+  if(view=="week"){
+    const s=addD(sel,-dow(sel)),e=addD(s,6);
+    $("#range").textContent=`${s.getDate()} ${MG[s.getMonth()]} – ${e.getDate()} ${MG[e.getMonth()]} ${e.getFullYear()}`;
+    h='<div id="week">';
+    for(let i=0;i<7;i++){
+      const d=addD(s,i),k=iso(d),gg=D.goals[k]||[];
+      h+=`<div class="day ${k==tod?"today":""} ${k==iso(sel)?"sel":""}" data-a="day" data-d="${k}"><div class="dh"><span>${DN[i]} ${d.getDate()}</span><span>${gg.length?`♥ ${gg.filter(x=>x.done).length}/${gg.length}`:"♡"}</span></div>`
+        +evOn(d).map(ev=>`<div class="ev" style="background:${CAT[ev.cat]||"#FFD6E7"}"><b>${ev.start}</b> ${esc(ev.title)}</div>`).join("")+"</div>";
+    }
+    h+="</div>";
+  }else if(view=="month"){
+    $("#range").textContent=`${MN[sel.getMonth()]} ${sel.getFullYear()}`;
+    const f=new Date(sel.getFullYear(),sel.getMonth(),1),s=addD(f,-dow(f));
+    h='<div id="month">'+DN.map(x=>`<b style="text-align:center;color:var(--deep)">${x}</b>`).join("");
+    for(let i=0;i<42;i++){
+      const d=addD(s,i);
+      if(i%7==0&&i>=35&&d.getMonth()!=sel.getMonth())break;
+      h+=`<div class="cell ${d.getMonth()!=sel.getMonth()?"out":""} ${iso(d)==tod?"today":""}" data-a="week" data-d="${iso(d)}"><b>${d.getDate()}</b>`
+        +evOn(d).slice(0,2).map(ev=>`<div class="ev sm" style="background:${CAT[ev.cat]||"#FFD6E7"}">${esc(ev.title)}</div>`).join("")+"</div>";
+    }
+    h+="</div>";
+  }else{
+    $("#range").textContent=pretty(sel);
+    const ev=evOn(sel);
+    h='<div class="day">'+(ev.length?ev.map(e=>`<div class="ev" style="background:${CAT[e.cat]||"#FFD6E7"};display:flex;gap:8px;align-items:center"><span style="flex:1"><b>${e.start}–${e.end}</b> ${esc(e.title)} <small>[${e.cat}]${e.repeat?" ↻":""}</small></span><button data-a="del" data-id="${e.id}">✕</button></div>`).join(""):"<p>Brak wydarzeń – dodaj coś miłego ♡</p>")+"</div>";
+  }
+  $("#main").innerHTML=h;
+  $("#gt").textContent="♡ Notatki i cele — "+pretty(sel);
+  $("#glist").innerHTML=g.length?g.map((x,i)=>`<div class="g ${x.done?"done":""}"><input type="checkbox" ${x.done?"checked":""} data-a="tg" data-i="${i}"><span>${esc(x.text)}</span><button data-a="dg" data-i="${i}">✕</button></div>`).join(""):"<small>Nic tu jeszcze nie ma – dodaj cel plusikiem ♡</small>";
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-a]");if(!t)return;
+  const a=t.dataset.a;
+  if(a=="day"){sel=par(t.dataset.d);view="day"}
+  else if(a=="week"){sel=par(t.dataset.d);view="week"}
+  else if(a=="del"){D.events=D.events.filter(x=>x.id!=t.dataset.id);save()}
+  else if(a=="tg"){goals(sel)[+t.dataset.i].done=t.checked;save()}
+  else if(a=="dg"){goals(sel).splice(+t.dataset.i,1);save()}
+  render();
+});
+
+$("#back").onclick=()=>{view=view=="week"?"month":"week";render()};
+$("#today").onclick=()=>{sel=new Date();sel.setHours(0,0,0,0);view="week";render()};
+function shift(n){
+  if(view=="week")sel=addD(sel,7*n);else if(view=="day")sel=addD(sel,n);
+  else{const d=new Date(sel.getFullYear(),sel.getMonth()+n,1);d.setDate(Math.min(sel.getDate(),new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));sel=d}
+  render();
+}
+$("#prev").onclick=()=>shift(-1);$("#next").onclick=()=>shift(1);
+
+function addG(){
+  const v=$("#gi").value.trim();
+  if(!v){$("#gi").focus();return}
+  goals(sel).push({text:v,done:false});$("#gi").value="";save();render();
+}
+$("#ga").onclick=addG;
+$("#gi").addEventListener("keydown",e=>{if(e.key=="Enter")addG()});
+
+$("#ec").innerHTML=Object.keys(CAT).map(c=>`<option>${c}</option>`).join("");
+$("#add").onclick=()=>{$("#ed").value=iso(sel);$("#dlg").showModal()};
+$("#cancel").onclick=()=>$("#dlg").close();
+$("#f").onsubmit=e=>{
+  e.preventDefault();
+  D.events.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:$("#et").value.trim(),date:$("#ed").value,start:$("#es").value,end:$("#ee").value,cat:$("#ec").value,repeat:$("#er").checked});
+  save();sel=par($("#ed").value);$("#et").value="";$("#er").checked=false;$("#dlg").close();render();
+};
+
+$("#exp").onclick=()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(D,null,2)],{type:"application/json"}));
+  a.download="planer_dane.json";a.click();
+};
+$("#impb").onclick=()=>$("#imp").click();
+$("#imp").onchange=async e=>{
+  try{
+    const n=JSON.parse(await e.target.files[0].text());
+    D={events:n.events||[],goals:n.goals||{}};save();render();
+  }catch(err){alert("Nie udało się wczytać pliku ♡")}
+};
+
+{const c=document.createElement("canvas");c.width=c.height=180;const x=c.getContext("2d");
+ x.fillStyle="#FF7EB3";x.fillRect(0,0,180,180);x.fillStyle="#fff";x.font="110px sans-serif";
+ x.textAlign="center";x.textBaseline="middle";x.fillText("♥",90,95);$("#ico").href=c.toDataURL()}
+
+render();
+</script>
+</body>
+</html>
